@@ -87,7 +87,7 @@ class Manager(object):
             pytorch_optim = optim.Adam
         else:
             raise NotImplementedError
-        optimizer = optim.Adam(
+        optimizer = optim.adam(
             params
         )
         return optimizer
