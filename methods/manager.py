@@ -192,7 +192,7 @@ class Manager(object):
             proto_mem = torch.stack(proto_mem, dim=0)
             print(f'proto size: {proto_mem.size()}')
             # print('prototype after cat')
-            print(proto_mem)
+            # print(proto_mem)
             
         # end edit here
             proto_mem = F.normalize(proto_mem, p =2, dim=1)

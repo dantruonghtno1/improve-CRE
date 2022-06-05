@@ -56,10 +56,10 @@ class Param:
         parser.add_argument("--num_workers", default=0, type=int)
 
         # epoch1
-        parser.add_argument("--step1_epochs", default=10, type=int) 
+        parser.add_argument("--step1_epochs", default=1, type=int) 
 
         # epoch2
-        parser.add_argument("--step2_epochs", default=10, type=int) 
+        parser.add_argument("--step2_epochs", default=1, type=int) 
 
         parser.add_argument("--seed", default=2021, type=int) 
 
