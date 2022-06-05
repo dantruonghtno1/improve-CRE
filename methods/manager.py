@@ -135,15 +135,15 @@ class Manager(object):
             - seen_relations: list[str]
             - tasks4replay: list[list[str]]  
         """
-        #  start training L2: multitask with pareto loss
+        
+        encoder.train()
+        optimizer = self.get_optimizer(args, encoder)
         for i in range(epochs):
-            encoder.train()
-            optimizer = self.get_optimizer(args, encoder)
+            # -----------------start training L2: multitask with pareto loss-----------------
             losses = []
-
-
             # get loss each and store to losses for Pareto calculate weight
             for j in range(len(tasks4replay)): 
+                print(f"-----------------start replay task {j}-----------------")
                 # get relation of each task (saved in tasks4replay)
                 relations_each_task = tasks4replay[j]
                 replay_task_data = []
@@ -152,6 +152,7 @@ class Manager(object):
                         replay_task_data += mem_data[relation]
                 print(f"len replay_task_task : {len(replay_task_data)}")
                 mem_loader = get_data_mem_loader(args, replay_task_data, shuffle=True)
+                # td = tqdm(mem_loader, desc=".".format(j))
                 for step, batch_data in enumerate(mem_loader):
                     optimizer.zero_grad()
                     labels, tokens, ind = batch_data
@@ -160,7 +161,8 @@ class Manager(object):
                     hidden, reps = encoder.bert_forward(tokens)
                     loss = self.moment.loss(reps, labels)
                     losses.append(loss.item())
-            
+                    print(f"memory_forward_task_{j} loss is {np.array(losses).mean()}")
+                print(f"-----------------end replay task {j}-----------------")
             # calculate weight for pareto loss
             # share_parameter = self.moment.get_share_parameter()
             share_parameter = [p for n, p in encoder.named_parameters()]
@@ -174,7 +176,7 @@ class Manager(object):
             final_loss_multi_task.backward()
             torch.nn.utils.clip_grad_norm_(encoder.parameters(), args.max_grad_norm)
             optimizer.step()
-        # end training L2
+        # -----------------end training L2: multitask with pareto loss-----------------
 
         # start training L2: KL divergence
         
@@ -358,7 +360,7 @@ class Manager(object):
                     # start edit here
                     # self.train_mem_model(args, encoder, train_data_for_memory, proto4repaly, args.step2_epochs, seen_relations)
                     # self.train_mem_model(args, encoder, train_data_for_memory, protos_raw, args.step2_epochs, seen_relations)
-                    self.train_mem_model_with_pareto(arg, encoder, train_data_for_memory, memorized_samples, args.step2_epochs, seen_relations, tasks4replay)
+                    self.train_mem_model_with_pareto(arg, encoder, train_data_for_memory, memorized_samples,protos_raw, args.step2_epochs, seen_relations, tasks4replay)
                     # end edit here
                 feat_mem = []
                 proto_mem = []
