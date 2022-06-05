@@ -14,7 +14,7 @@ import random
 from tqdm import tqdm, trange
 from sklearn.cluster import KMeans
 from .utils import osdist
-from pareto import Pareto
+from .pareto import Pareto
 from typing import Iterator
 
 class Manager(object):
