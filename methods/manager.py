@@ -22,7 +22,6 @@ class Manager(object):
         super().__init__()
         self.id2rel = None
         self.rel2id = None
-        self.pareto = Pareto()
     def get_proto(self, args, encoder, mem_set):
         # aggregate the prototype set for further use.
         data_loader = get_data_loader(args, mem_set, False, False, 1)
@@ -134,13 +133,10 @@ class Manager(object):
                 + list[n_seen_relations, dim_proto]
             - epochs: int
             - seen_relations: list[str]
-            - tasks4replay: list[list[str]]
-        
-        
+            - tasks4replay: list[list[str]]  
         """
         #  start training L2: multitask with pareto loss
         for i in range(epochs):
-            "suppose we have prototype each task"
             encoder.train()
             optimizer = self.get_optimizer(args, encoder)
             losses = []
@@ -168,7 +164,9 @@ class Manager(object):
             # calculate weight for pareto loss
             # share_parameter = self.moment.get_share_parameter()
             share_parameter = [p for n, p in encoder.named_parameters()]
-            weighted_loss = self.pareto.find_weighted_loss(losses = losses, parameters=share_parameter)
+            n_tasks=  len(tasks4replay)
+            pareto = Pareto(n_tasks)
+            weighted_loss = pareto.find_weighted_loss(losses = losses, parameters=share_parameter)
             # final_loss_multi_task = np.sum([weighted_loss[i] * losses[i]] for i in range(len(losses)))
             final_loss_multi_task = 0 
             for i in range(len(losses)):

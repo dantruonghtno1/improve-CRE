@@ -4,16 +4,17 @@ import torch.nn as nn
 import cvxpy as cp 
 
 class Pareto:
-    def __init__(self, config = None):
+    def __init__(self, n_tasks, normalize_weight = True):
         self.step = 0
-        self.config = config
-        self.optim_niter = config.optim_niter
-        self.max_norm = config.max_norm
-        self.n_tasks = config.n_tasks
+        self.optim_niter = 20
+        self.max_norm = 1.0
+        self.n_tasks = n_tasks
         self.prvs_alpha_param = None
         self.normalization_factor = np.ones((1,))
-        self.init_gtg = self.init_gtg = np.eye(self.config.n_tasks)
-        self.prvs_alpha = np.ones(self.config.n_tasks, dtype=np.float32)
+        self.init_gtg = self.init_gtg = np.eye(self.n_tasks)
+        self.prvs_alpha = np.ones(self.n_tasks, dtype=np.float32)
+        self.normalize_weight = normalize_weight
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def _stop_criteria(self, gtg, alpha_t):
         return (
@@ -90,7 +91,8 @@ class Pareto:
         if self.step == 0:
             self._init_optim_problem()
 
-        if self.step % self.config.update_weights_every == 0:
+        # if self.step % self.config.update_weights_every == 0:
+        if self.step % 50 == 0:
             self.step += 1
             grads = {}
             for i, loss in enumerate(losses):
@@ -109,7 +111,7 @@ class Pareto:
 
                 for j in range(len(g)): ## Doi voi loss contrastive khong co gradient layer implicit
                     if g[j] is None:
-                        lst_grad.append(torch.flatten(torch.zeros(shape_grad[j])).to(self.config.device))
+                        lst_grad.append(torch.flatten(torch.zeros(shape_grad[j])).to(self.device))
                     else:
                         lst_grad.append(torch.flatten(g[j]))
                 
@@ -128,7 +130,7 @@ class Pareto:
             self.step += 1
             alpha = self.prvs_alpha
         
-        if self.config.model == 'v1':
+        if self.normalize_weight == True:
             alpha = alpha / sum(alpha)
         return alpha
 
