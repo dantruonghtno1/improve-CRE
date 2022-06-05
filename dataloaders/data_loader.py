@@ -45,7 +45,7 @@ def get_data_loader(config, data, shuffle = False, drop_last = False, batch_size
 
     return data_loader
 
-def get_data_mem_loader(config, data_mem, shuffle = False, drop_last = False,):
+def get_data_mem_loader(config, data_mem, shuffle = False, drop_last = False):
 
     dataset = data_set(data_mem, config)
 

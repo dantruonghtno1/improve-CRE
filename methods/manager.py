@@ -1,6 +1,7 @@
 # %%writefile methods/manager.py
+from asyncio import tasks
 from dataloaders.sampler import data_sampler
-from dataloaders.data_loader import get_data_loader
+from dataloaders.data_loader import get_data_loader, get_data_mem_loader
 from .model import Encoder
 from .utils import Moment, dot_dist
 import torch
@@ -12,11 +13,15 @@ import random
 from tqdm import tqdm, trange
 from sklearn.cluster import KMeans
 from .utils import osdist
+from pareto import Pareto
+from typing import Iterator
+
 class Manager(object):
     def __init__(self, args):
         super().__init__()
         self.id2rel = None
         self.rel2id = None
+        self.pareto = Pareto()
     def get_proto(self, args, encoder, mem_set):
         # aggregate the prototype set for further use.
         data_loader = get_data_loader(args, mem_set, False, False, 1)
@@ -115,6 +120,67 @@ class Manager(object):
             print(f"{name} loss is {np.array(losses).mean()}")
         for epoch_i in range(epochs):
             train_data(data_loader, "init_train_{}".format(epoch_i), is_mem=False)
+
+    def train_mem_model_with_pareto(self, args, encoder, mem_data, proto_mem, epochs,seen_relations, tasks4replay):
+        """
+        inputs: 
+            - encoder: nn.Module
+            - mem_data: 
+                + dict[rel, list[(label, token, ind)]]
+                + memoried samples
+            - proto_mem: 
+                + list[n_seen_relations, dim_proto]
+            - epochs: int
+            - seen_relations: list[str]
+            - tasks4replay: list[list[str]]
+        
+        
+        """
+        #  start training L2: multitask with pareto loss
+        for i in range(epochs):
+            "suppose we have prototype each task"
+            encoder.train()
+            optimizer = self.get_optimizer(args, encoder)
+            losses = []
+
+
+            # get loss each and store to losses for Pareto calculate weight
+            for j in range(len(tasks4replay)): 
+                # get relation of each task (saved in tasks4replay)
+                relations_each_task = tasks4replay[j]
+                replay_task_data = []
+                for relation in relations_each_task:
+                    if relation in seen_relations:
+                        replay_task_data += mem_data[relation]
+                print(f"len replay_task_task : {len(replay_task_data)}")
+                mem_loader = get_data_mem_loader(args, replay_task_data, shuffle=True)
+                for step, batch_data in enumerate(mem_loader):
+                    optimizer.zero_grad()
+                    labels, tokens, ind = batch_data
+                    labels = labels.to(args.device)
+                    tokens = torch.stack([x.to(args.device) for x in tokens], dim=0)
+                    hidden, reps = encoder.bert_forward(tokens)
+                    loss = self.moment.loss(reps, labels)
+                    losses.append(loss.item())
+            
+            # calculate weight for pareto loss
+            # share_parameter = self.moment.get_share_parameter()
+            share_parameter = [p for n, p in encoder.named_parameters()]
+            weighted_loss = self.pareto.find_weighted_loss(losses = losses, parameters=share_parameter)
+            # final_loss_multi_task = np.sum([weighted_loss[i] * losses[i]] for i in range(len(losses)))
+            final_loss_multi_task = 0 
+            for i in range(len(losses)):
+                final_loss_multi_task += weighted_loss[i]*losses[i]
+            final_loss_multi_task.backward()
+            torch.nn.utils.clip_grad_norm_(encoder.parameters(), args.max_grad_norm)
+            optimizer.step()
+        # end training L2
+
+        # start training L2: KL divergence
+        
+
+        # end training L2: KL divergence
+
     def train_mem_model(self, args, encoder, mem_data, proto_mem, epochs, seen_relations):
         history_nums = len(seen_relations) - args.rel_per_task
         # start edit here
@@ -259,6 +325,7 @@ class Manager(object):
 
             # start edit here 
             protos_raw = []
+            tasks4replay = []
             # end edit hert
             for steps, (training_data, valid_data, test_data, current_relations, historic_test_data, seen_relations) in enumerate(sampler):
 
@@ -299,7 +366,7 @@ class Manager(object):
                     memorized_samples[relation], feat, temp_proto = self.select_data(args, encoder, training_data[relation])
                     feat_mem.append(feat)
                     proto_mem.append(temp_proto)
-
+                tasks4replay.append(current_relations)
                 feat_mem = torch.cat(feat_mem, dim=0)
                 temp_proto = torch.stack(proto_mem, dim=0)
 
