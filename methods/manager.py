@@ -70,7 +70,7 @@ class Manager(object):
         return mem_set, current_feat, current_feat.mean(0)
     
     def get_optimizer(self, args, encoder):
-        print('Use {} optim!'.format(args.optim))
+        # print('Use {} optim!'.format(args.optim))
         def set_param(module, lr, decay=0):
             parameters_to_optimize = list(module.named_parameters())
             no_decay = ['undecay']
@@ -87,7 +87,7 @@ class Manager(object):
             pytorch_optim = optim.Adam
         else:
             raise NotImplementedError
-        optimizer = pytorch_optim(
+        optimizer = optim.Adam(
             params
         )
         return optimizer
