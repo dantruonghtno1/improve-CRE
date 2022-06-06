@@ -49,7 +49,7 @@ def get_data_mem_loader(config, data_mem, shuffle = False, drop_last = False):
 
     dataset = data_set(data_mem, config)
 
-    batch_size = len(data_mem)
+    batch_size = 16
 
     data_loader = DataLoader(
         dataset=dataset,

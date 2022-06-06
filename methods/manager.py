@@ -87,7 +87,7 @@ class Manager(object):
             pytorch_optim = optim.Adam
         else:
             raise NotImplementedError
-        optimizer = optim.adam(
+        optimizer = pytorch_optim(
             params
         )
         return optimizer
@@ -144,6 +144,7 @@ class Manager(object):
             # get loss each and store to losses for Pareto calculate weight
             for j in range(len(tasks4replay)): 
                 print(f"-----------------start replay task {j}-----------------")
+                loss_each_task = []
                 # get relation of each task (saved in tasks4replay)
                 relations_each_task = tasks4replay[j]
                 replay_task_data = []
@@ -160,8 +161,10 @@ class Manager(object):
                     tokens = torch.stack([x.to(args.device) for x in tokens], dim=0)
                     hidden, reps = encoder.bert_forward(tokens)
                     loss = self.moment.loss(reps, labels)
-                    losses.append(loss.item())
+                    loss_each_task.append(loss.item())
                     print(f"memory_forward_task_{j} loss is {np.array(losses).mean()}")
+                avg_loss_task = np.array(loss_each_task).mean()
+                losses.append(avg_loss_task)
                 print(f"-----------------end replay task {j}-----------------")
             # calculate weight for pareto loss
             # share_parameter = self.moment.get_share_parameter()
@@ -360,7 +363,7 @@ class Manager(object):
                     # start edit here
                     # self.train_mem_model(args, encoder, train_data_for_memory, proto4repaly, args.step2_epochs, seen_relations)
                     # self.train_mem_model(args, encoder, train_data_for_memory, protos_raw, args.step2_epochs, seen_relations)
-                    self.train_mem_model_with_pareto(arg, encoder, train_data_for_memory, memorized_samples,protos_raw, args.step2_epochs, seen_relations, tasks4replay)
+                    self.train_mem_model_with_pareto(args, encoder, train_data_for_memory, memorized_samples,protos_raw, args.step2_epochs, seen_relations, tasks4replay)
                     # end edit here
                 feat_mem = []
                 proto_mem = []
