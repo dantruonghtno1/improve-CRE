@@ -145,6 +145,9 @@ class Manager(object):
             for j in range(len(tasks4replay)): 
                 print(f"-----------------start replay task {j}-----------------")
                 loss_each_task = []
+                temp_rel2id = [self.rel2id[x] for x in tasks4replay[j]]
+                map_relid2tempid = {k:v for v,k in enumerate(temp_rel2id)}
+                map_tempid2relid = {k:v for k, v in map_relid2tempid.items()}
                 # get relation of each task (saved in tasks4replay)
                 relations_each_task = tasks4replay[j]
                 replay_task_data = []
@@ -160,7 +163,7 @@ class Manager(object):
                     labels = labels.to(args.device)
                     tokens = torch.stack([x.to(args.device) for x in tokens], dim=0)
                     hidden, reps = encoder.bert_forward(tokens)
-                    loss = self.moment.loss(reps, labels)
+                    loss = self.moment.loss(reps, labels, is_mem= True, mapping = map_relid2tempid)
                     loss_each_task.append(loss.item())
                     print(f"memory_forward_task_{j} loss is {np.array(losses).mean()}")
                 avg_loss_task = np.array(loss_each_task).mean()
