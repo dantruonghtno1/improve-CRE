@@ -135,76 +135,51 @@ class Manager(object):
             - seen_relations: list[str]
             - tasks4replay: list[list[str]]  
         """
-        
         encoder.train()
         optimizer = self.get_optimizer(args, encoder)
+
         for i in range(epochs):
-            # -----------------start training L2: multitask with pareto loss-----------------
             losses = []
-            # get loss each and store to losses for Pareto calculate weight
-            for j in range(len(tasks4replay)): 
-                print(f"-----------------start replay task {j}-----------------")
-                loss_each_task = []
-                print(f"task4replay task j",tasks4replay[j])
+            for j in range(len(tasks4replay)):   
                 temp_rel2id = [self.rel2id[x] for x in tasks4replay[j]]
-                print(f"tem_rel2id : ", temp_rel2id)
                 map_relid2tempid = {k:v for v,k in enumerate(temp_rel2id)}
-                print(f"map_relid2tempid {map_relid2tempid}")
-                
                 map_tempid2relid = {k:v for k, v in map_relid2tempid.items()}
-#                 get relation of each task (saved in tasks4replay)
                 relations_each_task = tasks4replay[j]
-                print(f"relations each task : {relations_each_task}")
                 replay_task_data = []
                 for relation in relations_each_task:
                     if relation in seen_relations:
-                        replay_task_data += mem_data[relation]
-                print(f"len replay_task_task : {len(replay_task_data)}")
-                mem_loader = get_data_loader(args, replay_task_data, shuffle=True, batch_size = 16)
-                # td = tqdm(mem_loader, desc=".".format(j))
+                        relations_each_task += mem_data[relation]
+                mem_loader = get_data_loader(args,replay_task_data, shuffle=True, batch_size=4)
+                
+                loss_each_task = []
+                total_loss_each_task = 0
                 for step, batch_data in enumerate(mem_loader):
                     optimizer.zero_grad()
-#                     print("------------------------------------")
-#                     print(f"batch_data : {batch_data}")
-#                     print("-------------------------------------")
                     labels, tokens, ind = batch_data
-                    
                     labels = labels.to(args.device)
-#                     print(f"labels : {labels}")
-                    tokens = torch.stack([x.to(args.device) for x in tokens], dim=0)
+                    tokens = torch.stack([x.to(args.device) for x in tokens], dim = 0)
                     hidden, reps = encoder.bert_forward(tokens)
-#                     print(f"hidden : {hidden}")
-#                     print(f"reps : {reps}")
                     loss = self.moment.loss(reps, labels, is_mem= True, mapping = map_relid2tempid)
-#                     print("loss : ", {loss} )
-                    loss_each_task.append(loss.item())
-                print(f"loss each task : {loss_each_task}")
-                mean_loss_each_task = np.array(loss_each_task).mean()
-                print(f"memory_forward_task_{j} loss is {mean_loss_each_task}")
-                losses.append(torch.tensor(mean_loss_each_task, device = 'cuda:0', requires_grad = True))
-                print(f"losses : {losses}")
-                print(f"-----------------end replay task {j}-----------------")
-            # calculate weight for pareto loss
-            # share_parameter = self.moment.get_share_parameter()
-            if len(losses) > 1:
-                share_parameter = [p for n, p in encoder.named_parameters()]
-#                 print(share_parameter)
-                n_tasks=  len(losses)
-                pareto = Pareto(n_tasks)
-                weighted_loss = pareto.find_weighted_loss(losses = losses, parameters=share_parameter)
-                # final_loss_multi_task = np.sum([weighted_loss[i] * losses[i]] for i in range(len(losses)))
-                final_loss_multi_task = 0 
-                for i in range(len(losses)):
-                    final_loss_multi_task += weighted_loss[i]*losses[i]
+                    loss_each_task.append(loss)
+                    total_loss_each_task += loss
+                
+                avg_loss_each_task = total_loss_each_task/(1.0*len(loss_each_task))
+                losses.append(avg_loss_each_task)
+
+            if len(losses) > 1: 
+                share_parameter = [p for nn,p in encoder.named_parameters()]
+                n_tasks = len(losses)
+                pareto = Pareto(n_tasks=n_tasks)
+                weighted_loss = pareto.find_weighted_loss(losses=losses, parameters=share_parameter)
+                final_loss_multi_task = 0
+                for l in range(len(losses)):
+                    final_loss_multi_task += weighted_loss[l]*losses[l]
                 final_loss_multi_task.backward()
                 torch.nn.utils.clip_grad_norm_(encoder.parameters(), args.max_grad_norm)
                 optimizer.step()
-        # -----------------end training L2: multitask with pareto loss-----------------
 
-        # start training L2: KL divergence
-        
 
-        # end training L2: KL divergence
+            
 
     def train_mem_model(self, args, encoder, mem_data, proto_mem, epochs, seen_relations):
         history_nums = len(seen_relations) - args.rel_per_task
