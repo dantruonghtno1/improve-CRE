@@ -149,8 +149,7 @@ class Manager(object):
                 for relation in relations_each_task:
                     if relation in seen_relations:
                         relations_each_task += mem_data[relation]
-                mem_loader = get_data_loader(args,replay_task_data, shuffle=True, batch_size=4)
-                
+                mem_loader = get_data_loader(args, replay_task_data, shuffle=True, batch_size = 16)                
                 loss_each_task = []
                 total_loss_each_task = 0
                 for step, batch_data in enumerate(mem_loader):
