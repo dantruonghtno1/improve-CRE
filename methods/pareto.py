@@ -104,16 +104,19 @@ class Pareto:
                         allow_unused=True
                     )
                 )
-                if i == 0:
-                    shape_grad = [grad.size() for grad in g if grad != None]
+                # if i == 0:
+                #     shape_grad = [grad.size() for grad in g if grad != None]
                 
-                lst_grad = []
+                # lst_grad = []
 
-                for j in range(len(g)): ## Doi voi loss contrastive khong co gradient layer implicit
-                    if g[j] is None:
-                        lst_grad.append(torch.flatten(torch.zeros(shape_grad[j])).to(self.device))
-                    else:
-                        lst_grad.append(torch.flatten(g[j]))
+                # for j in range(len(g)): ## Doi voi loss contrastive khong co gradient layer implicit
+                #     if g[j] is None:
+                #         lst_grad.append(torch.flatten(torch.zeros(shape_grad[j])).to(self.device))
+                #     else:
+                #         lst_grad.append(torch.flatten(g[j]))
+                lst_grad = []
+                for j in range(len(g)):
+                    lst_grad.append(torch.flatten(g[j]))
                 
                 lst_grad = torch.cat(lst_grad)
                 grads[i] = lst_grad
